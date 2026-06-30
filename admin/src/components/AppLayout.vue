@@ -46,17 +46,17 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { api } from '../api'
 
+const router = useRouter()
 const authed = ref(false)
 
 onMounted(async () => {
   const key = localStorage.getItem('admin_api_key')
   if (!key) {
-    const input = prompt('请输入 ADMIN_API_KEY:')
-    if (input) {
-      localStorage.setItem('admin_api_key', input)
-    }
+    authed.value = false
+    return
   }
   try {
     await api.getAccounts()
