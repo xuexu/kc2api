@@ -6,7 +6,7 @@
   "description": "OpenAI-compatible relay for Kimchi upstream API",
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "start": "node dist/server.js",
+    "start": "node dist/src/server.js",
     "build": "npm run build:admin && tsc -p tsconfig.json",
     "build:admin": "cd admin && npm run build",
     "dev:admin": "cd admin && npm run dev",
