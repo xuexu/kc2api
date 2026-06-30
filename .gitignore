@@ -1,0 +1,9 @@
+/node_modules
+/admin/node_modules
+/.env
+/kimchi2api.db
+/kimchi2api.db-shm
+/kimchi2api.db-wal
+/nul
+/docs
+/dist
