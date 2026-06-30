@@ -2,7 +2,12 @@
   <div>
     <div class="page-header">
       <h1>账号管理</h1>
-      <button class="btn-primary" @click="openCreate">+ 新建账号</button>
+      <div style="display: flex; gap: 8px;">
+        <button class="btn-secondary" @click="exportAccounts">导出</button>
+        <button class="btn-secondary" @click="triggerImport">导入</button>
+        <input ref="fileInput" type="file" accept=".json" style="display:none" @change="handleImport" />
+        <button class="btn-primary" @click="openCreate">+ 新建账号</button>
+      </div>
     </div>
 
     <div v-if="accounts.length === 0" class="empty-state">
@@ -69,6 +74,7 @@ const showModal = ref(false)
 const editing = ref<any>(null)
 const saving = ref(false)
 const toastRef = ref<InstanceType<typeof Toast>>()
+const fileInput = ref<HTMLInputElement>()
 
 const form = ref({ name: '', api_key: '', base_url: 'https://llm.kimchi.dev', weight: 1, tags: [] as string[] })
 const tagInput = ref('')
@@ -130,6 +136,52 @@ async function confirmDelete(acc: any) {
 async function testAccount(acc: any) {
   const r = await api.testAccount(acc.id)
   toastRef.value?.show(r.ok ? '连接成功' : `连接失败: ${r.error || r.status}`, r.ok ? 'success' : 'error')
+}
+
+async function exportAccounts() {
+  const key = localStorage.getItem('admin_api_key') || ''
+  const res = await fetch('/admin/api/accounts/export/all', {
+    headers: { Authorization: `Bearer ${key}` },
+  })
+  const data = await res.json()
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = 'kimchi2api-accounts.json'
+  a.click()
+  URL.revokeObjectURL(url)
+  toastRef.value?.show(`已导出 ${data.length} 个账号`)
+}
+
+function triggerImport() {
+  fileInput.value?.click()
+}
+
+async function handleImport(e: Event) {
+  const file = (e.target as HTMLInputElement).files?.[0]
+  if (!file) return
+  try {
+    const text = await file.text()
+    const accounts = JSON.parse(text)
+    if (!Array.isArray(accounts)) {
+      toastRef.value?.show('JSON 格式错误：需要数组', 'error')
+      return
+    }
+    const key = localStorage.getItem('admin_api_key') || ''
+    const res = await fetch('/admin/api/accounts/import', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
+      body: JSON.stringify(accounts),
+    })
+    const result = await res.json()
+    toastRef.value?.show(`导入完成：新增 ${result.imported}，跳过 ${result.skipped}，错误 ${result.errors}`)
+    accounts.value = await api.getAccounts()
+  } catch (e: any) {
+    toastRef.value?.show('导入失败: ' + (e.message || '未知错误'), 'error')
+  }
+  // 重置 file input
+  if (fileInput.value) fileInput.value.value = ''
 }
 </script>
 

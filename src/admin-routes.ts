@@ -81,6 +81,48 @@ export function registerAdminRoutes(
     }
   })
 
+  // 导出账号
+  app.get('/admin/api/accounts/export/all', async (_req, reply) => {
+    const accounts = store.getAccounts()
+    reply.header('content-type', 'application/json')
+    reply.header('content-disposition', 'attachment; filename="kimchi2api-accounts.json"')
+    reply.send(accounts)
+  })
+
+  // 导入账号
+  app.post('/admin/api/accounts/import', async (request, reply) => {
+    const body = request.body as any
+    if (!Array.isArray(body)) {
+      return reply.code(400).send(openAIError('Expected a JSON array of accounts', 'invalid_request_error', 'invalid_body'))
+    }
+    const results: { name: string; status: 'created' | 'skipped' | 'error'; error?: string }[] = []
+    for (const item of body) {
+      if (!item.name || !item.api_key) {
+        results.push({ name: item.name || '(unknown)', status: 'error', error: 'name and api_key required' })
+        continue
+      }
+      try {
+        // 检查是否已存在同名账号
+        const existing = store.getAccounts().find(a => a.name === item.name)
+        if (existing) {
+          results.push({ name: item.name, status: 'skipped', error: 'already exists' })
+          continue
+        }
+        store.createAccount({
+          name: item.name,
+          api_key: item.api_key,
+          base_url: item.base_url,
+          weight: item.weight,
+          tags: item.tags,
+        })
+        results.push({ name: item.name, status: 'created' })
+      } catch (e: any) {
+        results.push({ name: item.name, status: 'error', error: e.message })
+      }
+    }
+    reply.send({ imported: results.filter(r => r.status === 'created').length, skipped: results.filter(r => r.status === 'skipped').length, errors: results.filter(r => r.status === 'error').length, results })
+  })
+
   // ====== 别名 ======
   app.get('/admin/api/aliases', async (_req, reply) => {
     reply.send(store.getAliases())
